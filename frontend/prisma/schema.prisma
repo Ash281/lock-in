@@ -1,0 +1,60 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+// this is where prisma is used to communicate with the database 
+// includes setting up models (events, users, preferences, etc.)
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum EventSource {
+  manual // events created manually by the user
+  ai // events created by AI suggestions
+  commitment // fixed events that repeat on a schedule
+  gcal // events imported from Google Calendar
+}
+
+// events will have an id, title, userId (to link to the user), start and end times, manual or fixed, and timestamps for creation and updates
+// this is the main model for the calendar events
+
+model Event {
+  id String @id @default(cuid())
+  title String
+  userId String
+  start DateTime
+  end DateTime
+  locked Boolean @default(false) // whether the event is locked (non-negotiable)
+  source EventSource @default(manual) // source can be manual or fixed (non-negotiable)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// commitments are used to store fixed events that repeat on a schedule
+// they have a title, recurrence rule (rrule), day of the week, start and end times, and timestamps for creation and updates
+// this is used for fixed events like classes, meetings, etc.
+// rrule is used to define the recurrence pattern (e.g. daily, weekly, etc.)
+// dayOfWeek is used for fixed events that occur on a specific day of the week (e.g. every Monday)
+// start and end are in HH:mm format
+
+model Commitment {
+  id String @id @default(cuid())
+  userId String
+  title String
+  rrule String // recurrence rule for fixed events e.g "FREQ=DAILY;BYDAY=MO,TU,WE,TH,FR;INTERVAL=1"
+  dayOfWeek Int? // e.g "Monday" use if rrule is not used if event is fixed to one specific day of the week
+  start String // start time in HH:mm format
+  end String // end time in HH:mm format
+  locked Boolean @default(true) // whether the event is locked (non-negotiable)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

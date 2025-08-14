@@ -1,6 +1,8 @@
 import Image from "next/image";
 import Calendar from "@/components/Calendar";
 
+// main application page where the calendar component is used
+
 export default function Home() {
   return (
    <main className="p-4">

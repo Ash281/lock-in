@@ -1,5 +1,8 @@
 "use client"
 
+// here i made a basic calendar component using FullCalendar. this is where the main timetable functionality will be implemented later.
+// includes code to handle date clicks, displaying events, basic setup (editable, selectable, etc.)
+
 import FullCalendar from '@fullcalendar/react'
 import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
