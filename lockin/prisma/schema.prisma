@@ -1,0 +1,47 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// the user model is made up of a user id, email, name and timestamp of creation
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  createdAt DateTime @default(now())
+  events    Event[]
+}
+// the event model is made up of an event id, title, start time, end time, flexibility, priority, recurrence,
+// associated userId, user in the user model and timestamp of creation
+model Event {
+  id          String          @id @default(cuid())
+  title       String
+  startTime   DateTime
+  endTime     DateTime
+  flexibility FlexibilityType? @default(FLEXIBLE) // events can either be completely locked, day locked, or fully flexible
+  priority    Int?              // events can have a priority level making it easier for the AI to schedule them
+  isRecurring Boolean       @default(false) // events can be recurring each week or one-time
+  userId      String
+  user        User            @relation(fields: [userId], references: [id])
+  createdAt   DateTime        @default(now())
+}
+
+// optional events don't need a default; having a default value can make it easier to work with
+
+enum FlexibilityType {
+  LOCKED
+  DAY_LOCKED  
+  FLEXIBLE
+}
