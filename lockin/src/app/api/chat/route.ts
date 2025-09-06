@@ -191,6 +191,7 @@ export async function POST(request: NextRequest) {
     let response = await client.responses.create({
       model: "gpt-5-nano",
       tools: tools,
+      // @ts-expect-error - OpenAI types don't match actual API behavior
       input: context,
       instructions: "You are a calendar scheduling assistant. Use createEvents function to schedule events based on user requests. Always use getCurrentEvents to check existing events for conflicts. Ask ONE clarifying question if needed, then create events on next response. If user doesn't specify which days, choose suitable ones. Prompt user to specify event length but if they don't give, then use suitable length. Infer meaningful titles from context. Assume user's local timezone. Only ask if date/time is genuinely unclear. Max 40 words response."
     });
@@ -245,6 +246,7 @@ export async function POST(request: NextRequest) {
         
         response = await client.responses.create({
           model: "gpt-5-nano",
+          // @ts-expect-error - OpenAI types don't match actual API behavior
           input: newContext,
           tools: tools,
           instructions: "You are a calendar scheduling assistant. Use createEvents function to schedule events based on user requests. Always use getCurrentEvents to check existing events for conflicts. Ask ONE clarifying question if needed, then create events on next response. Prompt user to specify event length but if they don't give, then use suitable length. If user doesn't specify which days, choose suitable ones. Infer meaningful titles from context. Assume user's local timezone. Only ask if date/time is genuinely unclear. Max 40 words response."
