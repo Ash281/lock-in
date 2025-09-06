@@ -127,7 +127,7 @@ export default function ChatWindow({ isOpen, onClose, onEventsCreated }: ChatWin
                             <MessageCircle size={48} className="mx-auto mb-3 text-gray-300" />
                             <p className="text-sm">Ask me to schedule events!</p>
                             <p className="text-xs mt-1 text-gray-400">
-                                Try: "Schedule gym sessions 3 times this week"
+                                {'Try: "Schedule gym sessions 3 times this week"'}
                             </p>
                         </div>
                     )}

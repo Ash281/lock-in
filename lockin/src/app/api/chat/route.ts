@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { strict } from "assert";
 import { FlexibilityType } from "@/generated/prisma";
+import { CreateEventInput, ConversationMessage } from "@/types/Chat";
 
 const client = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -18,7 +19,7 @@ async function getCurrentEvents() {
 }
 
 // createEvents: create events in DB using prisma
-async function createEvents(eventsData: any[]) {
+async function createEvents(eventsData: CreateEventInput[]) {
   const createdEvents = await Promise.all(
     eventsData.map(event => prisma.event.create({
       data: {
@@ -36,7 +37,7 @@ async function createEvents(eventsData: any[]) {
 }
 
 // function to create a summary of older messages
-async function createSummary(messages: any[]) {
+async function createSummary(messages: ConversationMessage[]) {
   if (messages.length === 0) return null; // no msgs to summarise
   
   try {
@@ -60,7 +61,7 @@ async function createSummary(messages: any[]) {
 }
 
 // function to manage conversation history
-async function manageConversationHistory(conversationHistory: any[], newMessage: string) {
+async function manageConversationHistory(conversationHistory: ConversationMessage[], newMessage: string) {
   const maxRecentMessages = 3; // keep last 3 messages in detail
 
   if (conversationHistory.length <= maxRecentMessages) {
@@ -130,7 +131,7 @@ export async function POST(request: NextRequest) {
     }));
 
     // store conversation history with summarization if needed in context
-    let context = await manageConversationHistory(conversationHistory, message);
+    const context = await manageConversationHistory(conversationHistory, message);
 
     // save user message to DB
     await prisma.message.create({

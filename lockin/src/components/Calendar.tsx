@@ -168,7 +168,7 @@ export default function Calendar() {
     const duration = (endTime.getTime() - startTime.getTime()) / (1000 * 60 * 60);
 
     return {
-      position: 'absolute' as 'absolute',
+      position: 'absolute' as const,
       top: `calc(${startHour} * clamp(40px, 6vh, 100px))`,     // Match your clamp!
       height: `calc(${duration} * clamp(40px, 6vh, 100px))`,   // Match your clamp!
       left: `${(dayIndex + 1) * (100 / 8) + 0.5}%`,
