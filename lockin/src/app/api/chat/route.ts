@@ -41,7 +41,7 @@ async function createSummary(messages: any[]) {
   
   try {
     const response = await client.responses.create({
-      model: "gpt-4o-mini", 
+      model: "gpt-5-nano", 
       instructions: "Summarize this conversation history in 2-3 sentences, focusing on key scheduling requests, decisions made, and important context for future interactions.",
       input: [
         {
@@ -94,13 +94,52 @@ async function manageConversationHistory(conversationHistory: any[], newMessage:
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, conversationHistory = [] } = await request.json(); // expect conversationHistory as array of {role, content}
+    const { message, conversationId } = await request.json();
     console.log("Message received:", message);
-    console.log("Conversation history length:", conversationHistory.length);
 
-    // manage conversation history with summarization
+    // get existing conversation or create new one if no ID
+    let conversation;
+    if (conversationId) {
+      conversation = await prisma.conversation.findUnique({
+        where: { id: conversationId },
+        include: {
+          messages: {
+            orderBy: { createdAt: 'asc' },
+            take: 3 // Last 3 messages for context
+          }
+        }
+      });
+    }
+
+    if (!conversation) {
+      // create new conversation using prisma
+      conversation = await prisma.conversation.create({
+        data: {
+          userId: 'tmpUserId' // Replace with actual user ID
+        },
+        include: {
+          messages: true
+        }
+      });
+    }
+
+    // build conversation history for context
+    const conversationHistory = conversation.messages.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
+
+    // store conversation history with summarization if needed in context
     let context = await manageConversationHistory(conversationHistory, message);
-    console.log("Context prepared:", context);
+
+    // save user message to DB
+    await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: "user",
+        content: message
+      }
+    });
 
     // define available functions in tools array
     const tools = [
@@ -149,10 +188,10 @@ export async function POST(request: NextRequest) {
     // now create input messages array
     // use let here since the input array may be modified during function calling
     let response = await client.responses.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5-nano",
       tools: tools,
       input: context,
-      instructions: "You are a calendar scheduling assistant. Use createEvents function to schedule events based on user requests. Always use getCurrentEvents to check existing events for conflicts. Ask ONE clarifying question if needed, then create events on next response. If user doesn't specify which days, choose suitable ones. Infer meaningful titles from context. Assume user's local timezone. Only ask if date/time is genuinely unclear. Max 25 words response."
+      instructions: "You are a calendar scheduling assistant. Use createEvents function to schedule events based on user requests. Always use getCurrentEvents to check existing events for conflicts. Ask ONE clarifying question if needed, then create events on next response. If user doesn't specify which days, choose suitable ones. Prompt user to specify event length but if they don't give, then use suitable length. Infer meaningful titles from context. Assume user's local timezone. Only ask if date/time is genuinely unclear. Max 40 words response."
     });
     console.log("Initial response:", response);
 
@@ -196,31 +235,35 @@ export async function POST(request: NextRequest) {
         ];
         
         response = await client.responses.create({
-          model: "gpt-4o-mini",
+          model: "gpt-5-nano",
           input: newContext,
           tools: tools,
-          instructions: "You are a calendar scheduling assistant. Use createEvents function to schedule events based on user requests. Always use getCurrentEvents to check existing events for conflicts. Ask ONE clarifying question if needed, then create events on next response. If user doesn't specify which days, choose suitable ones Infer meaningful titles from context. Assume user's local timezone. Only ask if date/time is genuinely unclear. Max 25 words response."
+          instructions: "You are a calendar scheduling assistant. Use createEvents function to schedule events based on user requests. Always use getCurrentEvents to check existing events for conflicts. Ask ONE clarifying question if needed, then create events on next response. Prompt user to specify event length but if they don't give, then use suitable length. If user doesn't specify which days, choose suitable ones. Infer meaningful titles from context. Assume user's local timezone. Only ask if date/time is genuinely unclear. Max 40 words response."
         });
         
         console.log("AI's next response:", response);
       }
     }
 
-    // Prepare updated conversation history to send back
-    const updatedHistory = [
-      ...conversationHistory,
-      { role: "user", content: message },
-      { role: "assistant", content: response.output_text || "Events processed successfully" }
-    ];
+    // save assistant's final message to DB
+    const assistantMessage = response.output_text || "Events processed successfully";
+    await prisma.message.create({
+      data: {
+        conversationId: conversation.id,
+        role: "assistant", 
+        content: assistantMessage
+      }
+    });
 
+    // return assistant's message and conversation ID to frontend
     return NextResponse.json({
       success: true,
-      message: response.output_text || "Events processed successfully",
-      conversationHistory: updatedHistory // Send back updated history
-    })
+      message: assistantMessage,
+      conversationId: conversation.id // return conversation ID for frontend
+    });
 
   } catch (error) {
-    console.error('AI API Error:', error)
-    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 })
+    console.error('AI API Error:', error);
+    return NextResponse.json({ error: 'Failed to process request' }, { status: 500 });
   }
 }
