@@ -9,6 +9,7 @@ const client = new OpenAI({
 });
 
 // define our function calls
+// getCurrentEvents: fetch current events from DB using prisma, to check for conflicts
 async function getCurrentEvents() {
   const currentEvents = await prisma.event.findMany({
     orderBy: { startTime: 'asc' }
@@ -16,6 +17,7 @@ async function getCurrentEvents() {
   return currentEvents;
 }
 
+// createEvents: create events in DB using prisma
 async function createEvents(eventsData: any[]) {
   const createdEvents = await Promise.all(
     eventsData.map(event => prisma.event.create({
@@ -33,72 +35,70 @@ async function createEvents(eventsData: any[]) {
   return createdEvents;
 }
 
-// Function to create a summary of older messages
+// function to create a summary of older messages
 async function createSummary(messages: any[]) {
-  if (messages.length === 0) return null;
+  if (messages.length === 0) return null; // no msgs to summarise
   
   try {
-    const response = await client.chat.completions.create({
-      model: "gpt-4o-mini", // Cheaper model for summarization
-      messages: [
-        {
-          role: "system",
-          content: "Summarize this conversation history in 2-3 sentences, focusing on key scheduling requests, decisions made, and important context for future interactions."
-        },
+    const response = await client.responses.create({
+      model: "gpt-4o-mini", 
+      instructions: "Summarize this conversation history in 2-3 sentences, focusing on key scheduling requests, decisions made, and important context for future interactions.",
+      input: [
         {
           role: "user", 
           content: `Summarize this conversation:\n${messages.map(m => `${m.role}: ${m.content}`).join('\n')}`
         }
       ],
-      max_tokens: 150
+      max_output_tokens: 150
     });
     
-    return response.choices[0].message.content;
+    return response.output_text?.trim() || null; // return the summary text
   } catch (error) {
     console.error('Error creating summary:', error);
     return "Previous conversation about calendar scheduling.";
   }
 }
 
-// Function to manage conversation history
+// function to manage conversation history
 async function manageConversationHistory(conversationHistory: any[], newMessage: string) {
-  const maxRecentMessages = 6;
-  
+  const maxRecentMessages = 3; // keep last 3 messages in detail
+
   if (conversationHistory.length <= maxRecentMessages) {
-    // If we have 3 or fewer messages, just add the new one
+    // if we have 3 or fewer messages, just add the new one
     return [...conversationHistory, { role: "user", content: newMessage }];
   }
   
-  // We have more than 3 messages, need to summarize older ones
-  const recentMessages = conversationHistory.slice(-maxRecentMessages);
-  const olderMessages = conversationHistory.slice(0, -maxRecentMessages);
+  // we have more than 3 messages, need to summarize older ones
+  const recentMessages = conversationHistory.slice(-maxRecentMessages); // last 3 messages
+  const olderMessages = conversationHistory.slice(0, -maxRecentMessages); // all but last 3
   
-  // Create summary of older messages
+  // create summary of older messages
   const summary = await createSummary(olderMessages);
   
-  // Build new context with summary + recent messages + new message
+  // build new context with summary + recent messages (3) + new message
   const context = [];
   
-  if (summary) {
+  // add summary as system message if it exists
+  if (summary) { 
     context.push({
       role: "system",
       content: `Previous conversation summary: ${summary}`
     });
   }
   
-  context.push(...recentMessages);
-  context.push({ role: "user", content: newMessage });
+  context.push(...recentMessages); // add recent messages
+  context.push({ role: "user", content: newMessage }); // add new user message
   
-  return context;
+  return context; 
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const { message, conversationHistory = [] } = await request.json();
+    const { message, conversationHistory = [] } = await request.json(); // expect conversationHistory as array of {role, content}
     console.log("Message received:", message);
     console.log("Conversation history length:", conversationHistory.length);
 
-    // Manage conversation history with summarization
+    // manage conversation history with summarization
     let context = await manageConversationHistory(conversationHistory, message);
     console.log("Context prepared:", context);
 
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
     // now create input messages array
     // use let here since the input array may be modified during function calling
     let response = await client.responses.create({
-      model: "gpt-5-nano",
+      model: "gpt-4o-mini",
       tools: tools,
       input: context,
       instructions: "You are a calendar scheduling assistant. Use createEvents function to schedule events based on user requests. Always use getCurrentEvents to check existing events for conflicts. Ask ONE clarifying question if needed, then create events on next response. If user doesn't specify which days, choose suitable ones. Infer meaningful titles from context. Assume user's local timezone. Only ask if date/time is genuinely unclear. Max 25 words response."
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
 
     // handle function calls
     let hasMoreFunctionCalls = true;
-    while (hasMoreFunctionCalls) {
+    while (hasMoreFunctionCalls) { // loop until no more function calls
       const functionOutputs = [];
       hasMoreFunctionCalls = false;
 
@@ -177,7 +177,7 @@ export async function POST(request: NextRequest) {
             console.log("createEvents result:", result);
           }
 
-          functionOutputs.push({
+          functionOutputs.push({ // prepare function call output to send back to AI as message
             type: "function_call_output",
             call_id: item.call_id,
             output: JSON.stringify(result)
@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // If function calls were made, continue the conversation
+      // if function calls were made, continue the conversation
       if (functionOutputs.length > 0) {
         console.log("Sending function results back to AI...");
         
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
         ];
         
         response = await client.responses.create({
-          model: "gpt-5-nano",
+          model: "gpt-4o-mini",
           input: newContext,
           tools: tools,
           instructions: "You are a calendar scheduling assistant. Use createEvents function to schedule events based on user requests. Always use getCurrentEvents to check existing events for conflicts. Ask ONE clarifying question if needed, then create events on next response. If user doesn't specify which days, choose suitable ones Infer meaningful titles from context. Assume user's local timezone. Only ask if date/time is genuinely unclear. Max 25 words response."

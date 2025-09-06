@@ -22,6 +22,7 @@ model User {
   name      String
   createdAt DateTime @default(now())
   events    Event[]
+  conversations Conversation[]
 }
 // the event model is made up of an event id, title, start time, end time, flexibility, priority, recurrence,
 // associated userId, user in the user model and timestamp of creation
@@ -39,6 +40,32 @@ model Event {
 }
 
 // optional events don't need a default; having a default value can make it easier to work with
+
+// conversation model to store chat conversations between user and AI
+// made up of conversation id, associated userId, user in the user model, array of messages and timestamps of creation and update
+model Conversation {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  Message[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("conversations")
+}
+
+// message model to store individual messages in a conversation
+// made up of message id, associated conversationId, conversation in the conversation model, role (user or assistant), content of the message and timestamps of creation and update
+model Message {
+  id             String       @id @default(cuid())
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String       // "user" or "assistant"
+  content        String
+  createdAt      DateTime     @default(now())
+
+  @@map("messages")
+}
 
 enum FlexibilityType {
   LOCKED
