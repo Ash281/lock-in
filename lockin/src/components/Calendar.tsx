@@ -298,6 +298,9 @@ export default function Calendar() {
                         className={`${getFlexibilityColor(event.flexibility)} border rounded p-1 cursor-pointer pointer-events-auto text-xs`}
                       >
                         <div className="font-medium truncate">{event.title}</div>
+                        <div className="text-[10px]">
+                          {formatDate(new Date(event.startTime), 'h:mm a')} - {formatDate(new Date(event.endTime), 'h:mm a')}
+                        </div>
                       </div>
                     ))
                 )}
