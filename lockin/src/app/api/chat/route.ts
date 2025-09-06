@@ -197,6 +197,8 @@ export async function POST(request: NextRequest) {
 
     // handle function calls
     let hasMoreFunctionCalls = true;
+    let successfulEventCreation = false;
+
     while (hasMoreFunctionCalls) { // loop until no more function calls
       const functionOutputs = [];
       hasMoreFunctionCalls = false;
@@ -211,9 +213,15 @@ export async function POST(request: NextRequest) {
             result = await getCurrentEvents();
             console.log("getCurrentEvents result:", result);
           } else if (item.name === "createEvents") {
-            const { events } = JSON.parse(item.arguments);
-            result = await createEvents(events);
-            console.log("createEvents result:", result);
+            try {
+              const { events } = JSON.parse(item.arguments);
+              result = await createEvents(events);
+              console.log("createEvents result:", result);
+              successfulEventCreation = result && result.length > 0; // Track success
+            } catch (error) {
+              console.error("Failed to create events:", error);
+              successfulEventCreation = false;
+            }
           }
 
           functionOutputs.push({ // prepare function call output to send back to AI as message
@@ -259,7 +267,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: assistantMessage,
-      conversationId: conversation.id // return conversation ID for frontend
+      conversationId: conversation.id, // return conversation ID for frontend
+      eventsCreated: successfulEventCreation
     });
 
   } catch (error) {

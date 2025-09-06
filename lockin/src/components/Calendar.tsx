@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, MessageCircle } from 'lucide-react';
 import { Event } from '../types/Event'; // import the Event type
 import AddEventWindow from './AddEventForm';
 import { CSSProperties } from 'react';
+import ChatWindow from './ChatWindow';
 
 // Date utility functions
 // change date to uk format using a switch case in multiple different formats
@@ -54,7 +55,7 @@ export default function Calendar() {
   // when setCurrentWeek is called, it will update the current week state and rerender the calendar
   const [showAddEvent, setShowAddEvent] = useState(false); // function to show the add event form (set by default to false)
   // when setShowAddEvent is called, it will update the show add event state and show/hide the form (decides whether the form is being shown or not)
-
+  const [showChat, setShowChat] = useState(false); // function to show the chat window (set by default to false)
   // get date for start of current week (Monday)
   const weekStart = getStartOfWeek(currentWeek);
 
@@ -138,6 +139,16 @@ export default function Calendar() {
     }
   }
 
+  const refreshEvents = async () => {
+    try {
+      const response = await fetch('/api/events');
+      const eventsData = await response.json();
+      setEvents(eventsData);
+    } catch (error) {
+      console.error('Failed to refresh events:', error);
+    }
+  };
+
   // get events for a specific day and hour
   const getEventsForSlot = (day: Date, hour: number) => {
     return events.filter(event => {
@@ -218,6 +229,14 @@ export default function Calendar() {
           >
             <Plus size={16} />
             Add Event
+          </button>
+        {/* AI Chat button */}
+          <button
+            onClick={() => setShowChat(true)}
+            className="flex items-center gap-2 px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <MessageCircle size={16} />
+            AI Assistant
           </button>
         </div>
       </div>
@@ -311,6 +330,13 @@ export default function Calendar() {
         onClose={() => setShowAddEvent(false)} // close the window by setting showAddEvent to false
         onSubmit={handleAddEvent}
       />
+
+      <ChatWindow
+        isOpen={showChat}
+        onClose={() => setShowChat(false)}
+        onEventsCreated={refreshEvents}
+        />
     </div>
+      
   );
 }
