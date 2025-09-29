@@ -10,7 +10,9 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.32.0",
     "@prisma/client": "^6.15.0",
+    "clerk": "^0.8.3",
     "lucide-react": "^0.542.0",
     "next": "15.5.2",
     "openai": "^5.19.1",
