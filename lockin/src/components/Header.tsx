@@ -6,7 +6,7 @@ export function Header() {
     <header className="border-b border-gray-200 bg-white">
       <div className="container mx-auto px-4 py-4 flex justify-between items-center">
         <Link href="/" className="text-2xl font-bold text-gray-900">
-          My App
+          Home
         </Link>
         <UserButton />
       </div>
